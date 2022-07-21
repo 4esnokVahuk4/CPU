@@ -1,0 +1,144 @@
+#include "iostream"
+#include <windows.h>
+#include <ctime>
+#include <fstream>
+using namespace std;
+#pragma warning(disable : 4996)
+
+int GetCpuUsage()
+{
+    static ULARGE_INTEGER TimeIdle, TimeKernel, TimeUser;
+    FILETIME Idle, Kernel, User;
+    ULARGE_INTEGER uIdle, uKernel, uUser;
+    GetSystemTimes(&Idle, &Kernel, &User);
+    memcpy(&uIdle, &Idle, sizeof(FILETIME));
+    memcpy(&uKernel, &Kernel, sizeof(FILETIME));
+    memcpy(&uUser, &User, sizeof(FILETIME));
+    long long t;
+    t = (((((uKernel.QuadPart - TimeKernel.QuadPart) + (uUser.QuadPart - TimeUser.QuadPart))
+        - (uIdle.QuadPart - TimeIdle.QuadPart)) * (100)) 
+        / ((uKernel.QuadPart - TimeKernel.QuadPart) + (uUser.QuadPart - TimeUser.QuadPart)));
+    TimeIdle.QuadPart = uIdle.QuadPart;
+    TimeUser.QuadPart = uUser.QuadPart;
+    TimeKernel.QuadPart = uKernel.QuadPart;
+    return(static_cast<int>(t));
+}
+
+void logfile() 
+{
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+    
+   
+    time_t res = time(NULL);
+    char str[26];
+    ctime_s(str, sizeof str, &res);
+    ofstream out;
+
+
+    for (int i = 0; i < strlen(str); i++)
+        if (str[i] == ' ') str[i] = '_';
+
+    string dt(str);
+    dt.erase(24);
+    dt.erase(7,1);
+    dt.erase(9, 9);
+    dt.erase(0, 4);
+    out.open("D:\\logfiles\\" + dt + ".txt", ios::app);
+    if (out.is_open())
+    {
+        out << "=+=+=+=+=+=+=+=+" << endl << str << endl;
+    }
+    
+    char buffer[1024];
+    DWORD size = 256;
+    GetComputerNameA(buffer, &size);
+    out << "Имя компьютера: " << buffer << endl;
+
+    size = 256;
+    GetUserNameA(buffer, &size);
+    out << "Имя пользователя: " << buffer << endl;
+    out << "=============" << endl;
+
+    HKEY Key;
+    DWORD BufferSize = MAX_PATH;
+
+    RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("hardware\\description\\system\\bios"), NULL, KEY_QUERY_VALUE, &Key);
+    RegQueryValueEx(Key, TEXT("BaseBoardManufacturer"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    for (int i = 0; i < BufferSize; i++)
+        out << buffer[i];
+
+
+    RegQueryValueEx(Key, TEXT("BaseBoardProduct"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    for (int i = 0; i < BufferSize; i++)
+        out << buffer[i];
+
+
+    RegQueryValueEx(Key, TEXT("BIOSVersion"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    for (int i = 0; i < BufferSize; i++)
+        out << buffer[i];
+
+
+    RegCloseKey(Key);
+    BufferSize = MAX_PATH;
+
+    RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"), NULL, KEY_QUERY_VALUE, &Key);
+    RegQueryValueEx(Key, TEXT("ProductName"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    out << endl << "=============" << endl;
+    for (int i = 0; i < BufferSize; i++)
+        out << buffer[i];
+
+
+    RegCloseKey(Key);
+    BufferSize = MAX_PATH;
+
+    RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0"), NULL, KEY_QUERY_VALUE, &Key);
+    RegQueryValueEx(Key, TEXT("ProcessorNameString"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    out << endl << "=============" << endl;
+    for (int i = 0; i < BufferSize; i++)
+        out << buffer[i];
+
+
+    RegCloseKey(Key);
+    BufferSize = MAX_PATH;
+    //Может не работать с другими видеокартами
+    RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("SYSTEM\\CurrentControlSet\\Enum\\PCI\\VEN_1002&DEV_73FF&SUBSYS_2412148C&REV_C1\\6&1f69b245&0&00000019"), NULL, KEY_QUERY_VALUE, &Key);
+    RegQueryValueEx(Key, TEXT("DeviceDesc"), NULL, NULL, (LPBYTE)&buffer, &BufferSize);
+
+    out << endl << "=============" << endl;
+    for (int i = 0; i < BufferSize; i++)
+
+        out << buffer[i];
+
+
+    RegCloseKey(Key);
+    out << endl;
+    out << endl;
+    out.close();
+}
+int main()
+{
+    int i = 0, l = 0;
+    double sred = 0;
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+    system("mode 40, 10");
+
+    logfile();
+    while (!GetAsyncKeyState(VK_END))
+    {
+        l = GetCpuUsage();
+        printf("Загрузка ЦП: %2d\r", l);
+        i++;
+        sred += l;
+        Sleep(1000);
+    }
+    sred = sred / i;
+    cout << endl << "===============" << endl << "Среднее значение: " << sred << endl << "Количество прошедших секунд: " << i << endl << "===============";
+    return EXIT_SUCCESS;
+}
